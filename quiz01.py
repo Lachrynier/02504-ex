@@ -3,24 +3,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-def Pi(ph):
-    """
-    Convert from homogeneous to inhomogeneous coordinates
-    ph: (point dimension x number of points)
-    """
-    p = ph[:-1] / ph[-1]
-    return p
-
-def PiInv(p):
-    """
-    Convert from inhomogeneous to homogeneous coordinates
-    p: (point dimension x number of points)
-    """
-    if p.ndim == 1:
-        return np.append(p, 1)
-    
-    ph = np.vstack((p, np.ones(p.shape[-1])))
-    return ph
+from utils import *
 
 ### Q1
 # If a2 + b2 = 1 and the scale of the homogeneous point is 1 then,
