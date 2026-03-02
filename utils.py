@@ -117,7 +117,7 @@ def normalize2d(p):
     """p is inhom."""
     assert p.shape[0] in (2, 3)
     if p.shape[0] == 3:
-        p = PiInv(p)
+        p = Pi(p)
 
     mu = np.mean(p, axis=1)
     sig = np.std(p, axis=1)
@@ -159,6 +159,8 @@ def DrawLine(l, shape): # Given
 
 def triangulate(q_list, P_list):
     """
+    Triangulate a single 3D point that has been seen by n different cameras.
+    Return the triangulation of the point in 3D using the linear algorithm.
     q_list: (q1, q2,..., qn) - pixel coordinates
     P_list: (P1, P2,..., Pn) - projection matrices
     """
@@ -171,3 +173,42 @@ def triangulate(q_list, P_list):
     U, S, VT = np.linalg.svd(B)
     Q = VT[-1,:]
     return Q
+
+def pest(q, Q, normalize=False):
+    """
+    Estimate projection matrix P using DLT.
+    q: 2D projections, hom.
+    Q: 3D points, hom.
+
+    Normalizing 2D points:
+    qi = P @ Qi
+    T @ qi = (T @ P) @ Qi
+    qi_norm = P_norm @ Qi
+    """
+    assert q.shape[1] == Q.shape[1]
+    assert q.shape[0] == 3
+    assert Q.shape[0] == 4
+
+    if normalize:
+        T = normalize2d(q)
+        q = T @ q
+    
+    B = []
+    q = q / q[-1]
+    print(q)
+    Q = Q / Q[-1]
+    for i in range(Q.shape[1]):
+        Bi = np.kron(Q[:, i], CrossOp(q[:, i]))
+        assert Bi.shape == (3, 12)
+        B.append(Bi)
+    
+    B = np.concatenate(B, axis=0)
+
+    U, S, VT = np.linalg.svd(B)
+    P = VT[-1].reshape((4, 3)).T
+
+    print('sing.:', S.max(), S.min())
+
+    if normalize:
+        P = np.linalg.inv(T) @ P
+    return P
