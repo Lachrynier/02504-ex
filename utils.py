@@ -31,14 +31,82 @@ def PiInv(p):
     ph = np.vstack((p, np.ones(p.shape[-1])))
     return ph
 
+def ensure_inhom(p, dim, *, eps=1e-12):
+    """
+    Return inhom coords of dimension `dim`.
+
+    Accepts:
+      - (dim, N) or (dim,)       inhom
+      - (dim+1, N) or (dim+1,)   hom
+
+    Returns:
+      - (dim, N) or (dim,)
+    """
+    p = np.asarray(p)
+
+    # 1D case
+    if p.ndim == 1:
+        if p.shape[0] == dim:
+            return p
+        if p.shape[0] == dim + 1:
+            w = p[-1]
+            if abs(w) < eps:
+                raise ValueError("Homogeneous w is ~0; cannot dehomogenize.")
+            return p[:-1] / w
+        raise ValueError(f"Expected length {dim} or {dim+1}, got {p.shape[0]}.")
+
+    # 2D case (dim x N)
+    if p.ndim == 2:
+        if p.shape[0] == dim:
+            return p
+        if p.shape[0] == dim + 1:
+            w = p[-1:]
+            if np.any(np.abs(w) < eps):
+                raise ValueError("Some homogeneous w are ~0; cannot dehomogenize.")
+            return p[:-1] / w
+        raise ValueError(f"Expected shape ({dim}, N) or ({dim+1}, N), got {p.shape}.")
+
+    raise ValueError(f"Expected 1D or 2D array, got ndim={p.ndim}.")
+
+def ensure_hom(p, dim):
+    """
+    Return hom coords of dimension `dim+1`.
+
+    Accepts:
+      - (dim, N) or (dim,)       inhom
+      - (dim+1, N) or (dim+1,)   hom
+
+    Returns:
+      - (dim+1, N) or (dim+1,)
+    """
+    p = np.asarray(p)
+
+    # 1D case
+    if p.ndim == 1:
+        if p.shape[0] == dim + 1:
+            return p
+        if p.shape[0] == dim:
+            return np.append(p, 1.0)
+        raise ValueError(f"Expected length {dim} or {dim+1}, got {p.shape[0]}.")
+
+    # 2D case
+    if p.ndim == 2:
+        if p.shape[0] == dim + 1:
+            return p
+        if p.shape[0] == dim:
+            ones = np.ones((1, p.shape[1]), dtype=p.dtype)
+            return np.vstack((p, ones))
+        raise ValueError(f"Expected shape ({dim}, N) or ({dim+1}, N), got {p.shape}.")
+
+    raise ValueError(f"Expected 1D or 2D array, got ndim={p.ndim}.")
+
 def projectpoints(K, R, t, Q, distCoeffs=None):
     """
     K: camera matrix
     (R, t): pose of the camera
     Q: 3 x n matrix; n points in 3D to be projected into the camera
     """
-    if Q.shape[0] == 4:
-        Q = Pi(Q)
+    Q = ensure_inhom(Q, dim=3)
     
     if distCoeffs is None:
         return K @ np.column_stack((R, t)) @ PiInv(Q)
@@ -85,14 +153,15 @@ def hest(q1, q2, normalize=False):
     Find H that best approximates q1 = H @ q2
     q1 and q2 are inhom.
     """
-    assert q1.shape == q2.shape
-    assert q1.shape[0] == 2
+    q1 = ensure_inhom(q1, dim=2)
+    q2 = ensure_hom(q2, dim=2)
 
-    q2 = PiInv(q2)
+    assert q1.shape[1] == q2.shape[1]
+
     if normalize:
         T1 = normalize2d(q1)
         T2 = normalize2d(q2)
-        q1 = T1 @ PiInv(q1)
+        q1 = Pi(T1 @ PiInv(q1))
         q2 = T2 @ q2
     
     B_list = []
@@ -113,11 +182,9 @@ def hest(q1, q2, normalize=False):
 
     return H
 
-def normalize2d(p):
+def normalize2d(p, debug=False):
     """p is inhom."""
-    assert p.shape[0] in (2, 3)
-    if p.shape[0] == 3:
-        p = Pi(p)
+    p = ensure_inhom(p, dim=2)
 
     mu = np.mean(p, axis=1)
     sig = np.std(p, axis=1)
@@ -127,6 +194,10 @@ def normalize2d(p):
         [0, 0, 1]
     ])
     T = np.linalg.inv(Tinv)
+
+    if debug:
+        assert np.all(np.isclose(np.mean(Pi(T @ PiInv(p)), axis=1), 0))
+        assert np.all(np.isclose(np.std(Pi(T @ PiInv(p)), axis=1), 1))
     return T
 
 def warpImage(im, H): # Given
@@ -167,6 +238,9 @@ def triangulate(q_list, P_list):
     assert len(q_list) == len(P_list)
     B = []
     for q, P in zip(q_list, P_list):
+        q = ensure_inhom(q, dim=2)
+        assert P.shape == (3, 4)
+
         B.append(np.stack((P[2]*q[0] - P[0], P[2]*q[1] - P[1]), axis=0))
     
     B = np.concatenate(B, axis=0)
@@ -186,8 +260,8 @@ def pest(q, Q, normalize=False):
     qi_norm = P_norm @ Qi
     """
     assert q.shape[1] == Q.shape[1]
-    assert q.shape[0] == 3
-    assert Q.shape[0] == 4
+    q = ensure_hom(q, dim=2)
+    Q = ensure_hom(Q, dim=3)
 
     if normalize:
         T = normalize2d(q)
@@ -195,7 +269,6 @@ def pest(q, Q, normalize=False):
     
     B = []
     q = q / q[-1]
-    print(q)
     Q = Q / Q[-1]
     for i in range(Q.shape[1]):
         Bi = np.kron(Q[:, i], CrossOp(q[:, i]))
@@ -207,7 +280,7 @@ def pest(q, Q, normalize=False):
     U, S, VT = np.linalg.svd(B)
     P = VT[-1].reshape((4, 3)).T
 
-    print('sing.:', S.max(), S.min())
+    print('max and min singular values:', S.max(), S.min())
 
     if normalize:
         P = np.linalg.inv(T) @ P
