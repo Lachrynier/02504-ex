@@ -207,12 +207,29 @@ def warpImage(im, H): # Given
 def CrossOp(p):
     assert p.shape[0] == 3
     assert p.size == 3
+    p = p.ravel() # otherwise if (3,1), indexing gives a 1x1 array instead of a scalar
     p_cross = np.array([
         [0, -p[2], p[1]],
         [p[2], 0, -p[0]],
         [-p[1], p[0], 0]
     ], dtype=float)
     return p_cross
+
+def ref2ref(R1, t1, R2, t2):
+    """R, t maps from the reference frame of camera one to the reference frame of camera two (their relative transformation)"""
+    R = R2 @ R1.T
+    t = t2 - R2 @ R1.T @ t1
+    return R, t
+
+def essential_matrix(R, t):
+    E = CrossOp(t) @ R
+    return E
+
+def fundamental_matrix(R, t, K1, K2):
+    """F = K2^(-T) @ E @ K1^(-1) in q2.T @ F @ q1 = 0"""
+    E = essential_matrix(R, t)
+    F = np.linalg.inv(K2).T @ E @ np.linalg.inv(K1)
+    return F
 
 def DrawLine(l, shape): # Given
     #Checks where the line intersects the four sides of the image
@@ -285,3 +302,19 @@ def pest(q, Q, normalize=False):
     if normalize:
         P = np.linalg.inv(T) @ P
     return P
+
+def checkerboard_points(n, m):
+    """
+    Returns the points Q_ij = [i-(n-1)/2, j-(m-1)/2, 0]
+        for i=0,...,n-1 and j=0,...,m-1
+    out_shape is (3, n*m)
+    """
+    i = np.arange(n) - (n - 1) / 2
+    j = np.arange(m) - (m - 1) / 2
+
+    # changed to match convention of cv2.findChessboardCorners, which corresponds to row major flattening of all the points
+    x = np.tile(i, m)
+    y = np.repeat(j, n)
+    z = np.zeros(n * m)
+
+    return np.vstack((x, y, z))

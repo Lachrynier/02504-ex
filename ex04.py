@@ -38,26 +38,6 @@ print(f'reprojection error (normalization): {e_proj}')
 
 # E4.3
 
-def checkerboard_points(n, m):
-    """
-    Returns the points Q_ij = [i-(n-1)/2, j-(m-1)/2, 0]
-        for i=0,...,n-1 and j=0,...,m-1
-    out_shape is (3, n*m)
-    """
-    # i = np.arange(n)
-    # j = np.arange(m)
-    # xgrid, ygrid = np.meshgrid(i - (n-1)/2, j - (m-1)/2, indexing='ij')
-    # return np.vstack((xgrid.ravel(), ygrid.ravel(), np.zeros(n*m)))
-
-    i = np.arange(n) - (n - 1) / 2
-    j = np.arange(m) - (m - 1) / 2
-
-    x = np.repeat(i, m)
-    y = np.tile(j, n)
-    z = np.zeros(n * m)
-
-    return np.vstack((x, y, z))
-
 print(checkerboard_points(2, 3))
 
 # E4.4
