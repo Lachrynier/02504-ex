@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import itertools as it
 import sys
 import importlib
+from pathlib import Path
 
 def box3d(n=16): # Given
     points = []
