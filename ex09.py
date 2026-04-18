@@ -127,7 +127,7 @@ def fundamental_matrix_RANSAC(pairs, N, sigma=3):
 
     return F, consensus, inlier_mask
 
-Fest, consensus, inlier_mask = fundamental_matrix_RANSAC(pairs, N=200)
+Fest, consensus, inlier_mask = fundamental_matrix_RANSAC(pairs, N=200, sigma=3)
 
 R = R2 @ R1.T
 t = -R2 @ R1.T @ t1 + t2
