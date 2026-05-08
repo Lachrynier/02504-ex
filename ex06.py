@@ -40,7 +40,8 @@ fig, ax = plt.subplots(2, 2, figsize=(10,10))
 ax = ax.flatten()
 ax[0].imshow(im)
 ax[1].imshow(I)
-ax[2].imshow(Ix)
+c2 = ax[2].imshow(Ix)
+fig.colorbar(c2, ax=ax[2])
 ax[3].imshow(Iy)
 plt.show()
 
@@ -70,6 +71,8 @@ def harrisMeasure(im, sigma, epsilon, k=0.06):
     r = a*b - c**2 - k*(a + b)**2
     return r
 
+# if epsilon is 0 (that is, no filtering is done), then the determinant is always 0
+# hence, the response function is always non-negative
 epsilon = 5
 k = 0.06
 r = harrisMeasure(im_grey, sigma, epsilon, k)
@@ -78,9 +81,12 @@ plt.imshow(r)
 plt.show()
 
 # E6.5
-def cornerDetector(im, sigma, epsilon, k, tau, disk_rad=1):
+def cornerDetector(im, sigma, epsilon, k, tau_frac=None, tau=None, disk_rad=1):
     r = harrisMeasure(im, sigma, epsilon, k=k)
-    tau = tau * r.max()
+    if tau is None:
+        if tau_frac is None:
+            return ValueError()
+        tau = tau_frac * r.max()
     M = r > tau
     # footprint = np.array([
     #     [0, 1, 0],
@@ -93,7 +99,7 @@ def cornerDetector(im, sigma, epsilon, k, tau, disk_rad=1):
     c = np.where(M & (r > Nmax))
     return np.array(c)
     
-c = cornerDetector(im_grey, sigma=sigma, epsilon=epsilon, k=k, tau=0.1)
+c = cornerDetector(im_grey, sigma=sigma, epsilon=epsilon, k=k, tau_frac=0.1)
 
 fig, ax = plt.subplots(1, 2)
 ax[0].imshow(r)
@@ -101,11 +107,11 @@ ax[1].imshow(im)
 ax[1].plot(*c[::-1], '.r')
 plt.show()
 
-def corner_pipeline(fname, sigma, epsilon, tau, disk_rad=1, k=0.006):
+def corner_pipeline(fname, sigma, epsilon, tau_frac, disk_rad=1, k=0.006):
     im = cv2.imread(DATA_ROOT / fname)[:, :, ::-1].astype(np.float32) / 255
     im_grey = cv2.cvtColor(im[:, :, ::-1], cv2.COLOR_BGR2GRAY)
     r = harrisMeasure(im_grey, sigma, epsilon, k)
-    c = cornerDetector(im_grey, sigma=sigma, epsilon=epsilon, k=k, tau=tau, disk_rad=disk_rad)
+    c = cornerDetector(im_grey, sigma=sigma, epsilon=epsilon, k=k, tau_frac=tau_frac, disk_rad=disk_rad)
 
     fig, ax = plt.subplots(1, 2)
     ax[0].imshow(r)
@@ -114,10 +120,10 @@ def corner_pipeline(fname, sigma, epsilon, tau, disk_rad=1, k=0.006):
     plt.show()
 
 # try to match that in VisSolutions
-corner_pipeline('TestIm1.png', sigma=1, epsilon=1, tau=0.01, disk_rad=5)
+corner_pipeline('TestIm1.png', sigma=1, epsilon=1, tau_frac=0.01, disk_rad=5)
 
 # try on other images
-corner_pipeline('Box3.bmp', sigma=5, epsilon=5, tau=0.01, disk_rad=5)
+corner_pipeline('Box3.bmp', sigma=5, epsilon=5, tau_frac=0.01, disk_rad=5)
 
 # E6.6
 im = cv2.imread(DATA_ROOT / 'TestIm1.png')
