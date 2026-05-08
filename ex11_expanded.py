@@ -1,4 +1,4 @@
-from utils import *
+from utils import *; importlib.reload(sys.modules['utils']); from utils import *
 import importlib, sys, glob
 import cv2
 import numpy as np
@@ -178,25 +178,30 @@ def world_to_cam1_camera(R, t, R1, t1):
     return (R1 @ C + t1).ravel()
 
 
-fig = plt.figure(figsize=(10, 8))
-ax = fig.add_subplot(projection='3d')
+fig = plt.figure(figsize=(16, 8))
+
+ax0 = fig.add_subplot(1, 2, 1, projection='3d')
+ax1 = fig.add_subplot(1, 2, 2)
 
 # Transform points
 for Q_in in all_Q_inliers:
     Q_cam1 = world_to_cam1_points(Q_in, Rs[1], ts[1])
-    ax.scatter(Q_cam1[:, 0], Q_cam1[:, 1], Q_cam1[:, 2], s=2)
+    ax0.scatter(Q_cam1[:, 0], Q_cam1[:, 1], Q_cam1[:, 2], s=2)
 
 # Plot cameras
 for i, (R, t) in enumerate(zip(Rs, ts)):
     C = world_to_cam1_camera(R, t, Rs[1], ts[1])
-    ax.scatter(*C)
-    ax.text(*C, f"cam_{i}")
 
-ax.set_xlabel("X (cam1)")
-ax.set_ylabel("Y (cam1)")
-ax.set_zlabel("Z (cam1)")
+    ax0.scatter(*C)
+    ax0.text(*C, f"cam_{i}")
 
-# Optional visual rotation (not geometric)
-ax.view_init(elev=45, azim=45)
+    ax1.plot(C[0], C[2], 'o')
+
+ax0.set_xlabel("X (cam1)")
+ax0.set_ylabel("Y (cam1)")
+ax0.set_zlabel("Z (cam1)")
+
+# Optional viewing angle
+ax0.view_init(elev=45, azim=45)
 
 plt.show()

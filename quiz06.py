@@ -28,3 +28,5 @@ footprint = np.array([
 Nmax = maximum_filter(r, footprint=footprint, mode='constant', cval=-np.inf)
 c = np.where(M & (r > Nmax))
 c = np.array(c)
+
+print(c)
